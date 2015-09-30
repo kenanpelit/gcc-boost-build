@@ -5,11 +5,9 @@ gcc-boost-build
   
   To use it:
 
-    $ mkdir -p work/gcc
-    $ cd work/gcc
     $ git clone https://github.com/nelsonje/gcc-boost-build.git
     $ cd gcc-boost-build
-    $ make
+    $ make PREFIX=<path>
 
   This was forked from one of Joe Linoff's gcc/boost build scripts; for more detailed information see http://joelinoff.com/blog/?p=1514.
 

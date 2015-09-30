@@ -9,19 +9,25 @@
 #
 # The languages supported are: c, c++ and go.
 #
-# To install gcc-4.9.2 in ~/tmp/gcc-4.9.2/rtf/bin you would run this
-# script as follows:
+# You probably want to use the included Makefile to do the build and
+# capture the log files. To install gcc-4.9.3 in
+# ~/tmp/gcc-4.9.3/rtf/bin you would run it as follows:
 #
-#    % # Install in ~/tmp/gcc-4.9.2/rtf/bin
-#    % bld.sh ~/tmp/gcc-4.9.2 2>&1 | tee bld.log
+#    $ make PREFIX=~/tmp/gcc-4.9.3/rtf/bin
+#
+# If you prefer to run the script directly and install gcc-4.9.3 in
+# ~/tmp/gcc-4.9.3/rtf/bin you do the following:
+#
+#    % # Install in ~/tmp/gcc-4.9.3/rtf/bin
+#    % bld.sh ~/tmp/gcc-4.9.3 2>&1 | tee bld.log
 #
 # If you do not specify a directory, then it will install in the
 # current directory which means that following command will also
-# install in ~/tmp/gcc-4.9.2/rtf/bin:
+# install in ~/tmp/gcc-4.9.3/rtf/bin:
 #
-#    % # Install in ~/tmp/gcc-4.9.2/rtf/bin
-#    % mkdir -p ~/tmp/gcc-4.9.2
-#    % cd ~/tmp/gcc-4.9.2
+#    % # Install in ~/tmp/gcc-4.9.3/rtf/bin
+#    % mkdir -p ~/tmp/gcc-4.9.3
+#    % cd ~/tmp/gcc-4.9.3
 #    % bld.sh 2>&1 | tee bld.log
 #
 # This script creates 4 subdirectories:
@@ -36,7 +42,7 @@
 # When the build is complete you can safely remove the archives, bld
 # and src directory trees to save disk space.
 #
-# Copyright (C) 2014 Joe Linoff
+# Copyright (C) 2014 Joe Linoff, Jacob Nelson
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
