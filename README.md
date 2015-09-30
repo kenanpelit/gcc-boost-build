@@ -14,4 +14,6 @@ gcc-boost-build
 Changelog:
 ----------
 
+- updated gcc 4.9.3, boost 1.59, mpfr 3.1.3, gperftools 2.4, binutils 2.25, mpc 1.0.3
+  added gdb, version 4.7.0
 - supports gcc 4.9.2, boost-1.57; Forked from https://github.com/jlinoff/gcc-4.9.2-boost-1.57

@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# Date: 2014-11-05
+# Date: 2015-09-28
 #
-# This downloads, builds and installs the gcc-4.9.2 compiler and
-# boost-1.57. It was also build tcmalloc-2.2.90 on linux but not Mac
-# OS. It handles the dependent packages like gmp-6.0.0a, mpfr-3.1.2,
-# mpc-1.0.2, ppl-1.1, cloog-0.18.0 and binutils-2.24.
+# This downloads, builds and installs the gcc-4.9.3 compiler and
+# boost-1.59. It also builds tcmalloc on Linux but not Mac OS. It
+# handles the dependent packages like binutils, gmp, mpfr, mpc,
+# ppl, and cloog.
 #
 # The languages supported are: c, c++ and go.
 #
@@ -315,15 +315,16 @@ function my-readlink
 ARS=(
     http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
     https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
-    http://www.mpfr.org/mpfr-current/mpfr-3.1.2.tar.bz2
-    http://www.multiprecision.org/mpc/download/mpc-1.0.2.tar.gz
+    http://www.mpfr.org/mpfr-current/mpfr-3.1.3.tar.bz2
+    http://www.multiprecision.org/mpc/download/mpc-1.0.3.tar.gz
     http://bugseng.com/products/ppl/download/ftp/releases/1.1/ppl-1.1.tar.bz2
-    http://www.bastoul.net/cloog/pages/download/cloog-0.18.1.tar.gz
-    http://ftp.gnu.org/gnu/gcc/gcc-4.9.2/gcc-4.9.2.tar.bz2
-    http://ftp.gnu.org/gnu/binutils/binutils-2.24.tar.bz2
-    http://sourceforge.net/projects/boost/files/boost/1.57.0/boost_1_57_0.tar.bz2
-    https://googledrive.com/host/0B6NtGsLhIcf7MWxMMF9JdTN3UVk/gperftools-2.2.90.tar.gz
-
+    http://www.bastoul.net/cloog/pages/download/cloog-0.18.4.tar.gz
+    http://ftp.gnu.org/gnu/gcc/gcc-4.9.3/gcc-4.9.3.tar.bz2
+    http://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
+    http://sourceforge.net/projects/boost/files/boost/1.59.0/boost_1_59_0.tar.bz2
+    https://github.com/gperftools/gperftools/releases/download/gperftools-2.4/gperftools-2.4.tar.gz
+    http://ftp.gnu.org/gnu/gdb/gdb-7.10.tar.gz
+    
     #
     # Why glibc is disabled (for now).
     #
@@ -369,7 +370,7 @@ export LD_LIBRARY_PATH="${RTFDIR}/lib:${RTFDIR}/lib64:${LD_LIBRARY_PATH}"
 
 echo
 echo "# ================================================================"
-echo '# Version    : gcc-4.9.2 2014-11-05'
+echo '# Version    : gcc-4.9.3 2015-09-28'
 echo "# RootDir    : $ROOTDIR"
 echo "# ArchiveDir : $ARDIR"
 echo "# RtfDir     : $RTFDIR"
@@ -525,7 +526,7 @@ for ar in ${ARS[@]} ; do
                 ;;
 
             gcc-*)
-                # We are using a newer version of CLooG (0.18.0).
+                # We are using a newer version of CLooG (0.18.x).
                 # I have also made stack protection available
                 # (similar to DEP in windows).
                 CONF_ARGS=(
@@ -554,7 +555,7 @@ for ar in ${ARS[@]} ; do
                     if [[ "$plat" == "$macplat" ]] ; then
                         # Special handling for Mac OS X 10.9.
                         # Fix the bad reference to CFBase.h in
-                        # src/gcc-4.9.2/libsanitizer/asan/asan_malloc_mac.cc
+                        # src/gcc-4.9.3/libsanitizer/asan/asan_malloc_mac.cc
                         src="$sd/libsanitizer/asan/asan_malloc_mac.cc"
                         if [ -f $src ] ; then
                             if [ ! -f $src.orig ] ; then
@@ -567,6 +568,18 @@ for ar in ${ARS[@]} ; do
                 done
                 ;;
 
+            gdb-*)
+                CONF_ARGS=(
+                    --enable-gold
+                    --enable-lto
+                    --enable-libssp
+                    --prefix=${RTFDIR}
+                    --with-mpc=${RTFDIR}
+                    --with-mpfr=${RTFDIR}
+                    --with-gmp=${RTFDIR}
+                )
+                ;;
+            
             glibc-*)
                 CONF_ARGS=(
                     --enable-static-nss=no
@@ -662,7 +675,7 @@ for ar in ${ARS[@]} ; do
                                 awk \
 '{ \
   if($1=="namespace" && $2 == "std") { \
-    printf("// Automatically patched by bld.sh for gcc-4.9.2.\n"); \
+    printf("// Automatically patched by bld.sh for gcc-4.9.3.\n"); \
     printf("#define tininess_before tinyness_before\n"); \
     printf("#if __GNU_MP_VERSION < 5  || (__GNU_MP_VERSION == 5 && __GNU_MP_VERSION_MINOR < 1)\n");
   } \
