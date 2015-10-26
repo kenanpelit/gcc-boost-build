@@ -2,12 +2,13 @@
 #
 # Date: 2015-09-28
 #
-# This downloads, builds and installs the gcc-4.9.3 compiler and
-# boost-1.59. It also builds tcmalloc on Linux but not Mac OS. It
-# handles the dependent packages like binutils, gmp, mpfr, mpc,
-# ppl, and cloog.
+# This downloads, builds and installs the gcc compiler, boost, and
+# gdb. It also builds tcmalloc on Linux but not Mac OS. It handles
+# dependent packages like binutils, gmp, mpfr, mpc, ppl, cloog, and
+# others.
 #
-# The languages supported are: c, c++ and go.
+# By default we build C and C++. You can also edit LANGUAGES below to
+# include go and/or fortran.
 #
 # You probably want to use the included Makefile to do the build and
 # capture the log files. To install gcc-4.9.3 in
@@ -184,6 +185,11 @@ function docmd {
     local st=$?
     echo "STATUS = $st"
     if (( $st != 0 )) ; then
+        echo '# ================================================================'
+        echo "# Error $st on line ${BASH_LINENO[0]} while running command"
+        echo "#   $cmd"
+        echo "# Aborting!"
+        echo '# ================================================================'
         exit $st;
     fi
 }
@@ -314,6 +320,9 @@ function my-readlink
 # The order is important.
 ARS=(
     http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+    http://ftp.gnu.org/gnu/m4/m4-1.4.17.tar.bz2
+    http://downloads.sourceforge.net/project/flex/flex-2.5.39.tar.bz2
+    http://ftp.gnu.org/gnu/bison/bison-3.0.4.tar.gz
     https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
     http://www.mpfr.org/mpfr-current/mpfr-3.1.3.tar.bz2
     http://www.multiprecision.org/mpc/download/mpc-1.0.3.tar.gz
@@ -321,6 +330,8 @@ ARS=(
     http://www.bastoul.net/cloog/pages/download/cloog-0.18.4.tar.gz
     http://ftp.gnu.org/gnu/gcc/gcc-4.9.3/gcc-4.9.3.tar.bz2
     http://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
+    http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz
+    http://zlib.net/zlib-1.2.8.tar.gz
     http://sourceforge.net/projects/boost/files/boost/1.59.0/boost_1_59_0.tar.bz2
     https://github.com/gperftools/gperftools/releases/download/gperftools-2.4/gperftools-2.4.tar.gz
     http://ftp.gnu.org/gnu/gdb/gdb-7.10.tar.gz
@@ -358,6 +369,10 @@ elif (( $# > 1 )) ; then
     doerr "too many command line arguments ($#), only zero or one is allowed" "foo"
 fi
 
+GCC_VERSION=4.9.3
+#LANGUAGES='c,c++,fortran,go'
+LANGUAGES='c,c++'
+
 # Setup the directories.
 ARDIR="$ROOTDIR/archives"
 RTFDIR="$ROOTDIR/rtf"
@@ -370,7 +385,7 @@ export LD_LIBRARY_PATH="${RTFDIR}/lib:${RTFDIR}/lib64:${LD_LIBRARY_PATH}"
 
 echo
 echo "# ================================================================"
-echo '# Version    : gcc-4.9.3 2015-09-28'
+echo '# Version    : gcc-${GCC_VERSION} $(date +%x)'
 echo "# RootDir    : $ROOTDIR"
 echo "# ArchiveDir : $ARDIR"
 echo "# RtfDir     : $RTFDIR"
@@ -463,7 +478,7 @@ for ar in ${ARS[@]} ; do
     d=${ard[3]}
     sd="$SRCDIR/$d"
     bd="$BLDDIR/$d"
-    if [ -d $bd ] ; then
+    if [ -e "$bd/.success" ] ; then
         echo "INFO: already built $sd"
     else
         # Build
@@ -480,8 +495,22 @@ for ar in ${ARS[@]} ; do
         plat=$(get-platform)
         run_conf=1
         run_boost_bootstrap=0
+        run_bzip2=0
         case "$d" in
             binutils-*)
+                # if a modern makeinfo is not available, installation will fail. Check version.
+                if ${MAKEINFO} --version \
+                        | egrep 'texinfo[^0-9]*(4\.([7-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
+                    # new enough; no problem!
+                    :
+                else
+                    # Too old or non-existent! Patch the configure script to disable makeinfo usage.
+                    if [ ! -f "$sd/configure.orig" ] ; then
+                        cp $sd/configure{,.orig}
+                        sed -e 's/    MAKEINFO="\$MISSING makeinfo"/    MAKEINFO="echo makeinfo"/' \
+                            $sd/configure.orig >$sd/configure
+                    fi
+                fi
                 # Binutils will not compile with strict error
                 # checking on so I disabled -Werror by setting
                 # --disable-werror.
@@ -512,7 +541,7 @@ for ar in ${ARS[@]} ; do
                 run_boost_bootstrap=1
                 CONF_ARGS=(
                     --prefix=${RTFDIR}
-                    --with-python=python2.7
+                    --without-libraries=python
                 )
                 ;;
 
@@ -532,9 +561,10 @@ for ar in ${ARS[@]} ; do
                 CONF_ARGS=(
                     --disable-cloog-version-check
                     --disable-ppl-version-check
+                    --disable-multilib
                     --enable-cloog-backend=isl
                     --enable-gold
-                    --enable-languages='c,c++,go'
+                    --enable-languages="${LANGUAGES}"
                     --enable-lto
                     --enable-libssp
                     --prefix=${RTFDIR}
@@ -568,18 +598,6 @@ for ar in ${ARS[@]} ; do
                 done
                 ;;
 
-            gdb-*)
-                CONF_ARGS=(
-                    --enable-gold
-                    --enable-lto
-                    --enable-libssp
-                    --prefix=${RTFDIR}
-                    --with-mpc=${RTFDIR}
-                    --with-mpfr=${RTFDIR}
-                    --with-gmp=${RTFDIR}
-                )
-                ;;
-            
             glibc-*)
                 CONF_ARGS=(
                     --enable-static-nss=no
@@ -588,6 +606,24 @@ for ar in ${ARS[@]} ; do
                     --with-elf
                     CC=${RTFDIR}/bin/gcc
                     CXX=${RTFDIR}/bin/g++
+                )
+                ;;
+
+            m4-*)
+                CONF_ARGS=(
+                    --prefix=${RTFDIR}
+                )
+                ;;
+
+            flex-*)
+                CONF_ARGS=(
+                    --prefix=${RTFDIR}
+                )
+                ;;
+
+            bison-*)
+                CONF_ARGS=(
+                    --prefix=${RTFDIR}
                 )
                 ;;
 
@@ -689,6 +725,63 @@ for ar in ${ARS[@]} ; do
                 fi
                 ;;
 
+            bzip2-*)
+                # switch on -fPIC in static library
+                if [ ! -f "$sd/Makefile.orig" ] ; then
+                    cp $sd/Makefile{,.orig}
+                    sed -e 's/^CFLAGS=/CFLAGS=-fPIC /' \
+                        $sd/Makefile.orig >$sd/Makefile
+                fi
+
+                # doesn't support a build directory natively, so make one
+                mkdir -p $bd
+                cp -a $sd/* $bd/
+
+                run_conf=0
+                run_bzip2=1
+                CONF_ARGS=(
+                    PREFIX=${RTFDIR}
+                    CC=${RTFDIR}/bin/gcc
+                    CXX=${RTFDIR}/bin/g++
+                )
+                ;;
+
+            zlib-*)
+                # doesn't support a build directory natively (as far as I know), so make one
+                mkdir -p $bd
+                cp -a $sd/* $bd/
+                CONF_ARGS=(
+                    --prefix=${RTFDIR}
+                )
+                ;;
+
+            gdb-*)
+                # if a modern makeinfo is not available, installation will fail. Check version.
+                if ${MAKEINFO} --version \
+                        | egrep 'texinfo[^0-9]*(4\.([7-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
+                    # new enough; no problem!
+                    :
+                else
+                    # Too old or non-existent! Patch the configure script to disable makeinfo usage.
+                    if [ ! -f "$sd/configure.orig" ] ; then
+                        cp $sd/configure{,.orig}
+                        sed -e 's/    MAKEINFO="\$MISSING makeinfo"/    MAKEINFO="#\$MISSING makeinfo"/' \
+                            $sd/configure.orig >$sd/configure
+                    fi
+                fi
+                CONF_ARGS=(
+                    --enable-gold
+                    --enable-lto
+                    --enable-libssp
+                    --prefix=${RTFDIR}
+                    --with-mpc=${RTFDIR}
+                    --with-mpfr=${RTFDIR}
+                    --with-gmp=${RTFDIR}
+                    CC=${RTFDIR}/bin/gcc
+                    CXX=${RTFDIR}/bin/g++
+                )
+                ;;
+            
             *)
                 doerr "unrecognized package: $d"
                 ;;
@@ -709,12 +802,13 @@ for ar in ${ARS[@]} ; do
             docmd $ar $sd/bootstrap.sh --help
             docmd $ar $sd/bootstrap.sh ${CONF_ARGS[@]}
             docmd $ar ./b2 --help
-            docmd $ar ./b2 --clean
-            docmd $ar ./b2 --reconfigure
-            docmd $ar ./b2 -a -d+2 --build-dir $bd
-            docmd $ar ./b2 -d+2 --build-dir $bd install
-            docmd $ar ./b2 install
+            docmd $ar ./b2 -d+2 --build-dir=$bd
+            docmd $ar ./b2 -d+2 --build-dir=$bd install
             popd
+        fi
+        if (( $run_bzip2 )) ; then
+            docmd $ar make ${CONF_ARGS[@]}
+            docmd $ar make install ${CONF_ARGS[@]}
         fi
 
         # Redo the tests if anything changed.
@@ -722,8 +816,62 @@ for ar in ${ARS[@]} ; do
             rm -rf $TSTDIR
         fi
         popd
+
+        # mark that we're done
+        touch "$bd/.success"
     fi
 done
+
+# ================================================================
+# Add module files
+# ================================================================
+mkdir -p ${RTFDIR}/modulefiles/gcc
+cat <<EOF >${RTFDIR}/modulefiles/gcc/${GCC_VERSION}
+#%Module1.0#####################################################################
+##
+## Module file for gcc-${GCC_VERSION}
+##
+proc ModulesHelp { } {
+    global version modroot
+
+    puts stderr "gcc-${GCC_VERSION} - sets the environment for GCC ${GCC_VERSION} as well as dependences:"
+    puts stderr "  * Boost 1.59.0"
+    puts stderr "  * GDB 7.10"
+    puts stderr "  * gperftools 2.4"
+    puts stderr "  * binutils 2.25"
+    puts stderr "  * bzip2 1.0.6 (static only)"
+    puts stderr "  * zlib 1.2.8"
+    puts stderr "  * m4 1.4.17"
+    puts stderr "  * flex 2.5.39"
+    puts stderr "  * bison 3.0.4"
+    puts stderr "  * libiconv 1.14"
+    puts stderr "  * gmp 6.0.0a"
+    puts stderr "  * mpfr 3.1.3"
+    puts stderr "  * mpc 1.0.3"
+    puts stderr "  * ppl 1.1"
+    puts stderr "  * cloog 0.18.4"
+}
+
+module-whatis   "Sets the environment for using gcc-${GCC_VERSION} compilers and related packages (Boost, GDB, gperftools, binutils, bzip2, zlib, m4, flex, bison, etc.)"
+
+# for Tcl script use only
+set     topdir          ${RTFDIR}
+set     version         ${GCC_VERSION}
+set     sys             linux86
+
+setenv          CC              ${RTFDIR}/bin/gcc
+setenv          CXX             ${RTFDIR}/bin/g++
+setenv          GCC             ${RTFDIR}/bin/gcc
+
+setenv          BOOST_HOME      ${RTFDIR}
+setenv          BOOST_ROOT      ${RTFDIR}
+
+prepend-path    PATH            ${RTFDIR}/bin
+prepend-path    MANPATH         ${RTFDIR}/man
+prepend-path    MANPATH         ${RTFDIR}/share/man
+prepend-path    LD_LIBRARY_PATH ${RTFDIR}/lib
+prepend-path    LD_LIBRARY_PATH ${RTFDIR}/lib64
+EOF
 
 # ================================================================
 # Test
