@@ -370,8 +370,8 @@ elif (( $# > 1 )) ; then
 fi
 
 GCC_VERSION=4.9.3
-#LANGUAGES='c,c++,fortran,go'
-LANGUAGES='c,c++'
+LANGUAGES='c,c++,fortran'
+#LANGUAGES='c,c++'
 
 # Setup the directories.
 ARDIR="$ROOTDIR/archives"
